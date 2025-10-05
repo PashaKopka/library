@@ -1,14 +1,14 @@
-from pydantic import AnyUrl, Field
+from typing import Optional
+
+from pydantic import AnyUrl
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: AnyUrl = Field(default=None, env="DATABASE_URL")
-    jwt_secret: str = Field(default=None, env="JWT_SECRET")
-    jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
-    access_token_expire_minutes: int = Field(
-        default=60, env="ACCESS_TOKEN_EXPIRE_MINUTES"
-    )
+    database_url: Optional[AnyUrl] = None
+    jwt_secret: str = "your_jwt_secret_key"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
 
     class Config:
         env_file = ".env"
