@@ -1,6 +1,7 @@
+import json
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -83,3 +84,48 @@ async def delete_book_endpoint(
 ):
     await delete_book(db=db, book_id=book_id)
     return {"detail": "Book deleted successfully"}
+
+
+@router.post("/bulk-upload", status_code=status.HTTP_201_CREATED)
+async def bulk_upload_books(
+    json_file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[BookRead]:
+    allowed_content_types = ["application/json", "text/json"]
+
+    if (
+        not json_file.filename.lower().endswith(".json")
+        or json_file.content_type not in allowed_content_types
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. File must be a JSON (.json) file.",
+        )
+
+    try:
+        contents = await json_file.read()
+        data = json.loads(contents)
+        if not isinstance(data, list):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="JSON file must contain a list of book objects.",
+            )
+
+        created_books = []
+        for item in data:
+            if not isinstance(item, dict):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Each book entry must be a JSON object.",
+                )
+            book = await save_book(payload=BookCreate(**item), db=db)
+            created_books.append(book)
+
+        return created_books
+
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to decode JSON. Please ensure the file contains valid JSON.",
+        )
