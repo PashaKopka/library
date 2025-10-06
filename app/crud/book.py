@@ -5,35 +5,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.crud.author import get_or_create_authors
 from app.crud.genre import get_genre_by_name
 from app.models.author import Author
 from app.models.book import Book
 from app.models.genre import Genre
 from app.schemas.book import BookCreate, BookRead, MultipleBooksResponse
-
-
-async def get_or_create_authors(
-    db: AsyncSession,
-    author_names: list[str],
-) -> list[Author]:
-    existing_authors = await db.execute(
-        select(Author).filter(Author.name.in_(author_names))
-    )
-    existing_authors = list(existing_authors.scalars().all())
-
-    existing_names = {str(author.name) for author in existing_authors}
-    new_names = set(author_names) - existing_names
-
-    new_authors = [Author(name=name) for name in new_names]
-    db.add_all(new_authors)
-
-    if new_authors:
-        await db.commit()
-
-        for author in new_authors:
-            await db.refresh(author)
-
-    return existing_authors + new_authors
 
 
 async def save_book(
@@ -173,7 +150,6 @@ async def get_books(
     query = (
         select(Book)
         .options(selectinload(Book.authors), selectinload(Book.genre))
-        .distinct()
     )
 
     if title:
@@ -191,6 +167,8 @@ async def get_books(
     if published_year_to:
         query = query.filter(Book.published_year <= published_year_to)
 
+    total = await db.scalar(select(func.count()).select_from(query.subquery()))
+
     if sort_by == "title":
         query = query.order_by(Book.title)
     elif sort_by == "year":
@@ -202,8 +180,6 @@ async def get_books(
 
     result = await db.execute(query)
     db_books = result.scalars().unique().all()
-
-    total = await db.scalar(select(func.count()).select_from(query.subquery()))
 
     books = [
         BookRead(
@@ -218,6 +194,4 @@ async def get_books(
         for book in db_books
     ]
 
-    return MultipleBooksResponse(
-        books=books, total=total, page=offset, size=limit
-    )
+    return MultipleBooksResponse(books=books, total=total, page=offset, size=limit)
