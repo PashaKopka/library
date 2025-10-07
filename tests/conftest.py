@@ -74,7 +74,7 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def app(sessionmanager):
     async def override_get_db():
         async with sessionmanager() as db:
@@ -85,7 +85,7 @@ def app(sessionmanager):
         yield actual_app
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def client(app):
     with TestClient(app) as c:
         yield c
