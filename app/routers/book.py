@@ -5,7 +5,15 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.crud.book import delete_book, get_book, get_books, save_book, update_book
+from app.crud.book import (
+    delete_book,
+    get_book,
+    get_books,
+    save_book,
+    sort_by_literal,
+    update_book,
+)
+from app.crud.book_search import search_books
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas.book import BookCreate, BookRead, MultipleBooksResponse
@@ -27,7 +35,7 @@ async def create_book(
 async def get_books_endpoint(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    sort_by: Literal["title", "year", "author"] | None = None,
+    sort_by: sort_by_literal | None = None,
     title: str | None = None,
     author: str | None = None,
     genre: str | None = None,
@@ -92,6 +100,31 @@ async def bulk_upload_books(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[BookRead]:
+    """
+    Upload a JSON file with a list of books.
+
+    Example JSON file:
+
+    ```json
+    [
+      {
+        "title": "The Great Gatsby",
+        "description": "A novel set in the Roaring Twenties.",
+        "published_year": 1925,
+        "authors": ["F. Scott Fitzgerald"],
+        "genre": "fiction"
+      },
+      {
+        "title": "Dune",
+        "description": "Epic sci-fi saga.",
+        "published_year": 1965,
+        "authors": ["Frank Herbert"],
+        "genre": "science"
+      }
+    ]
+    ```
+    """
+
     allowed_content_types = ["application/json", "text/json"]
 
     if (
@@ -129,3 +162,17 @@ async def bulk_upload_books(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to decode JSON. Please ensure the file contains valid JSON.",
         )
+
+
+@router.get(
+    "/search/", response_model=MultipleBooksResponse, status_code=status.HTTP_200_OK
+)
+async def books_search(
+    query: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    results = await search_books(db, query)
+    return MultipleBooksResponse(
+        books=results, total=len(results), page=0, size=len(results)
+    )

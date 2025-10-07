@@ -3,6 +3,7 @@ from contextlib import ExitStack
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 from sqlalchemy_utils import create_database, database_exists, drop_database
@@ -56,6 +57,8 @@ async def sessionmanager(engine):
 @pytest.fixture(scope="function")
 async def db_session(sessionmanager):
     async with sessionmanager() as session:
+        await session.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
+        await session.commit()
         try:
             await session.begin()
             yield session

@@ -9,7 +9,7 @@ class Author(Base):
     __tablename__ = "authors"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False, unique=True)
+    name = Column(String(255), nullable=False, unique=True, index=True)
 
     books = relationship(
         "Book", secondary=book_author_association, back_populates="authors"

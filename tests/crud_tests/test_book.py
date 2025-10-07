@@ -130,6 +130,21 @@ async def test_save_book_no_genre(db_session):
     assert "Genre not found" in str(excinfo.value)
 
 
+async def test_save_book_already_exists(db_session, book_created):
+    book = BookCreate(
+        title="Book 1",
+        description="New Description",
+        published_year=2022,
+        genre="Nonexistent Genre",
+        authors=["Author 1", "Author 2"],
+    )
+    with pytest.raises(Exception) as excinfo:
+        await save_book(book, db_session)
+
+    assert excinfo.type.__name__ == "HTTPException"
+    assert "Book already exists" in str(excinfo.value)
+
+
 async def test_save_book(db_session, genre_created):
     book = BookCreate(
         title="New Book",

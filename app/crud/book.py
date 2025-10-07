@@ -17,6 +17,12 @@ async def save_book(
     payload: BookCreate,
     db: AsyncSession,
 ) -> BookRead:
+    book = await db.execute(select(Book).where(Book.title == payload.title))
+    if book.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Book already exists"
+        )
+
     genre_name = payload.genre
     genre = await get_genre_by_name(db, genre_name)
 
@@ -136,9 +142,12 @@ async def delete_book(db: AsyncSession, book_id: int) -> None:
     await db.commit()
 
 
+sort_by_literal = Literal["title", "year", "author"]
+
+
 async def get_books(
     db: AsyncSession,
-    sort_by: Literal["title", "year", "author"] | None = None,
+    sort_by: sort_by_literal | None = None,
     title: str | None = None,
     author: str | None = None,
     genre: str | None = None,
@@ -147,10 +156,7 @@ async def get_books(
     limit: int = 5,
     offset: int = 0,
 ) -> MultipleBooksResponse:
-    query = (
-        select(Book)
-        .options(selectinload(Book.authors), selectinload(Book.genre))
-    )
+    query = select(Book).options(selectinload(Book.authors), selectinload(Book.genre))
 
     if title:
         query = query.filter(Book.title.ilike(f"%{title}%"))
